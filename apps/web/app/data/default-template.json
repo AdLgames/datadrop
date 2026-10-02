@@ -1,0 +1,347 @@
+{
+  "name": "Trade account application",
+  "description": "A UK B2B trade credit account application form, filled in by hand or typed by the customer and the sales rep. Sections: business details, contacts, credit requested, principals, bank details, trade references, declarations.",
+  "protectedKeys": ["legal_name", "business_type", "signatory_name"],
+  "sections": [
+    {
+      "key": "business",
+      "title": "Business",
+      "fields": [
+        {
+          "key": "legal_name",
+          "label": "Legal name",
+          "type": "text",
+          "requirement": "required",
+          "ask": "What is the business's full legal name (as registered)?"
+        },
+        {
+          "key": "trading_name",
+          "label": "Trading name",
+          "type": "text",
+          "requirement": "optional"
+        },
+        {
+          "key": "business_type",
+          "label": "Business type",
+          "type": "choice",
+          "requirement": "required",
+          "options": ["Limited company", "Sole trader", "Partnership", "LLP", "Other"],
+          "ask": "Is the customer a limited company, sole trader, partnership or LLP?"
+        },
+        {
+          "key": "company_number",
+          "label": "Company registration number",
+          "type": "company_number",
+          "requirement": "optional",
+          "rules": [
+            {
+              "field": "business_type",
+              "op": "in",
+              "value": ["Limited company", "LLP"],
+              "then": "required"
+            }
+          ],
+          "ask": "What is the company registration number (8 characters, from Companies House)?"
+        },
+        {
+          "key": "vat_number",
+          "label": "VAT number",
+          "type": "vat_number",
+          "requirement": "optional",
+          "ask": "What is the VAT number, if they have one? Reply NONE if not registered."
+        },
+        {
+          "key": "registered_address",
+          "label": "Registered address",
+          "type": "multiline",
+          "requirement": "optional",
+          "rules": [
+            {
+              "field": "business_type",
+              "op": "in",
+              "value": ["Limited company", "LLP"],
+              "then": "required"
+            }
+          ],
+          "ask": "What is the registered office address?"
+        },
+        {
+          "key": "trading_address",
+          "label": "Trading address",
+          "type": "multiline",
+          "requirement": "required",
+          "ask": "What is the trading address?"
+        },
+        {
+          "key": "trading_postcode",
+          "label": "Trading postcode",
+          "type": "postcode",
+          "requirement": "required",
+          "ask": "What is the trading address postcode?"
+        },
+        {
+          "key": "delivery_address",
+          "label": "Delivery address",
+          "type": "multiline",
+          "requirement": "optional"
+        },
+        {
+          "key": "delivery_postcode",
+          "label": "Delivery postcode",
+          "type": "postcode",
+          "requirement": "optional",
+          "ask": "What is the delivery postcode?"
+        },
+        { "key": "business_phone", "label": "Phone", "type": "phone", "requirement": "optional" },
+        { "key": "business_email", "label": "Email", "type": "email", "requirement": "optional" },
+        { "key": "website", "label": "Website", "type": "text", "requirement": "optional" }
+      ]
+    },
+    {
+      "key": "contacts",
+      "title": "Contacts",
+      "fields": [
+        {
+          "key": "accounts_contact_name",
+          "label": "Accounts payable contact",
+          "type": "text",
+          "requirement": "required",
+          "ask": "Who is the accounts payable contact (name)?"
+        },
+        {
+          "key": "accounts_contact_email",
+          "label": "Accounts contact email",
+          "type": "email",
+          "requirement": "required",
+          "ask": "What is the accounts contact's email address?"
+        },
+        {
+          "key": "accounts_contact_phone",
+          "label": "Accounts contact phone",
+          "type": "phone",
+          "requirement": "required",
+          "ask": "What is the accounts contact's phone number?"
+        },
+        {
+          "key": "buyer_name",
+          "label": "Buyer / ordering contact",
+          "type": "text",
+          "requirement": "optional"
+        },
+        { "key": "buyer_phone", "label": "Buyer phone", "type": "phone", "requirement": "optional" }
+      ]
+    },
+    {
+      "key": "credit",
+      "title": "Credit",
+      "fields": [
+        {
+          "key": "credit_limit_requested",
+          "label": "Credit limit requested",
+          "type": "currency",
+          "requirement": "required",
+          "ask": "What credit limit is the customer asking for (in £)?"
+        },
+        {
+          "key": "expected_monthly_spend",
+          "label": "Expected monthly spend",
+          "type": "currency",
+          "requirement": "optional"
+        },
+        {
+          "key": "payment_terms_requested",
+          "label": "Payment terms requested",
+          "type": "text",
+          "requirement": "optional"
+        }
+      ]
+    },
+    {
+      "key": "principals",
+      "title": "Directors / proprietor / partners",
+      "fields": [
+        {
+          "key": "principal_1_name",
+          "label": "Principal 1: full name",
+          "type": "text",
+          "requirement": "required",
+          "ask": "What is the full name of the director, proprietor or senior partner?"
+        },
+        {
+          "key": "principal_1_dob",
+          "label": "Principal 1: date of birth",
+          "type": "date",
+          "requirement": "optional",
+          "sensitive": true,
+          "rules": [
+            {
+              "field": "business_type",
+              "op": "in",
+              "value": ["Sole trader", "Partnership"],
+              "then": "required"
+            }
+          ],
+          "ask": "What is their date of birth?"
+        },
+        {
+          "key": "principal_1_home_address",
+          "label": "Principal 1: home address",
+          "type": "multiline",
+          "requirement": "optional",
+          "sensitive": true,
+          "rules": [
+            {
+              "field": "business_type",
+              "op": "in",
+              "value": ["Sole trader", "Partnership"],
+              "then": "required"
+            }
+          ],
+          "ask": "What is their home address (including postcode)?"
+        },
+        {
+          "key": "principal_2_name",
+          "label": "Principal 2: full name",
+          "type": "text",
+          "requirement": "optional"
+        },
+        {
+          "key": "principal_2_dob",
+          "label": "Principal 2: date of birth",
+          "type": "date",
+          "requirement": "optional",
+          "sensitive": true
+        },
+        {
+          "key": "principal_2_home_address",
+          "label": "Principal 2: home address",
+          "type": "multiline",
+          "requirement": "optional",
+          "sensitive": true
+        }
+      ]
+    },
+    {
+      "key": "bank",
+      "title": "Bank",
+      "fields": [
+        {
+          "key": "bank_name",
+          "label": "Bank name",
+          "type": "text",
+          "requirement": "hidden",
+          "sensitive": true
+        },
+        {
+          "key": "bank_sort_code",
+          "label": "Sort code",
+          "type": "sort_code",
+          "requirement": "hidden",
+          "sensitive": true
+        },
+        {
+          "key": "bank_account_number",
+          "label": "Account number",
+          "type": "account_number",
+          "requirement": "hidden",
+          "sensitive": true
+        }
+      ]
+    },
+    {
+      "key": "references",
+      "title": "Trade references",
+      "fields": [
+        {
+          "key": "trade_ref_1_business",
+          "label": "Trade reference 1: business",
+          "type": "text",
+          "requirement": "required",
+          "ask": "Who is the first trade reference (business name, contact and phone)?"
+        },
+        {
+          "key": "trade_ref_1_contact",
+          "label": "Trade reference 1: contact",
+          "type": "text",
+          "requirement": "optional"
+        },
+        {
+          "key": "trade_ref_1_phone",
+          "label": "Trade reference 1: phone",
+          "type": "phone",
+          "requirement": "optional"
+        },
+        {
+          "key": "trade_ref_2_business",
+          "label": "Trade reference 2: business",
+          "type": "text",
+          "requirement": "required",
+          "ask": "Who is the second trade reference (business name, contact and phone)?"
+        },
+        {
+          "key": "trade_ref_2_contact",
+          "label": "Trade reference 2: contact",
+          "type": "text",
+          "requirement": "optional"
+        },
+        {
+          "key": "trade_ref_2_phone",
+          "label": "Trade reference 2: phone",
+          "type": "phone",
+          "requirement": "optional"
+        }
+      ]
+    },
+    {
+      "key": "declarations",
+      "title": "Declarations",
+      "fields": [
+        {
+          "key": "signatory_name",
+          "label": "Signatory name",
+          "type": "text",
+          "requirement": "required",
+          "ask": "Who signed the form (full name)?"
+        },
+        {
+          "key": "signatory_position",
+          "label": "Signatory position",
+          "type": "text",
+          "requirement": "required",
+          "ask": "What is the signatory's position in the business?"
+        },
+        {
+          "key": "signature_present",
+          "label": "Signature present on form",
+          "type": "yes_no",
+          "requirement": "required",
+          "hint": "Yes only if a handwritten or drawn signature is visible in the signature box.",
+          "ask": "Is the form signed? The customer needs to sign before it can go to credit control."
+        },
+        {
+          "key": "date_signed",
+          "label": "Date signed",
+          "type": "date",
+          "requirement": "optional",
+          "ask": "What date was the form signed?"
+        },
+        {
+          "key": "terms_accepted",
+          "label": "T&Cs accepted",
+          "type": "yes_no",
+          "requirement": "optional"
+        },
+        {
+          "key": "personal_guarantee_signed",
+          "label": "Personal guarantee signed",
+          "type": "yes_no",
+          "requirement": "optional",
+          "rules": [
+            { "field": "credit_limit_requested", "op": "gt", "value": 10000, "then": "required" }
+          ],
+          "ask": "Has the personal guarantee been signed? It is needed for limits over £10,000."
+        }
+      ]
+    }
+  ]
+}

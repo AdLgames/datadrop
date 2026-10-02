@@ -1,0 +1,1 @@
+-- Mirrors of the migrations applied to the accountdrop Supabase project via the management API.
