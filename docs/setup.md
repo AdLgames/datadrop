@@ -12,14 +12,15 @@ The schema, RLS policies, the `forms` bucket and the reference counter are alrea
       The publishable key is already in `.env.example`.
 - [ ] **you** Authentication → Providers → Email: enabled; **Confirm email off** is fine (users only
       exist by invitation); set **OTP expiry** to 600 seconds and **OTP length** to 6.
-- [ ] **you** Authentication → Email Templates → _Magic Link_: replace the body so the code is first:
+- [ ] **you** Authentication → Email Templates: edit BOTH _Confirm signup_ (sent to a brand-new
+      address on its first code request) and _Magic Link_ (sent to existing users) so the code is first:
       `html
     <h2>Your AccountDrop sign-in code</h2>
-    <p style="font-size:28px;letter-spacing:4px"><strong>{{ .Token }}</strong></p>
-    <p>Enter it at {{ .SiteURL }}/login/code. It expires in 10 minutes. If you didn't request it, ignore this email.</p>
-    `
-      Subject: `Your AccountDrop sign-in code`. (The app sends codes, never links, so corporate link
-      scanners cannot consume them.)
+            <p style="font-size:28px;letter-spacing:4px"><strong>{{ .Token }}</strong></p>
+            <p>Enter it at {{ .SiteURL }}/login/code. It expires in 10 minutes. If you didn't request it, ignore this email.</p>
+            `
+              Subject: `Your AccountDrop sign-in code`. (The app sends codes, never links, so corporate link
+              scanners cannot consume them.)
 - [ ] **you** Authentication → SMTP settings: custom SMTP via Resend (`smtp.resend.com`, port 465,
       user `resend`, password = your Resend API key, sender on your verified domain). Supabase's
       built-in sender is limited to a few emails an hour and is not for production.
@@ -28,12 +29,12 @@ The schema, RLS policies, the `forms` bucket and the reference counter are alrea
 - [ ] **you** Authentication → Rate limits: keep the defaults or tighten OTP requests per hour.
 - [ ] Create the first tenant and its admin (SQL editor, replace the values):
       `sql
-    insert into public.tenants (name, settings)
-    values ('Your Company Ltd', '{"allowed_domains":["yourcompany.co.uk"],"notify_emails":["credit@yourcompany.co.uk"],"retention_days":30}')
-    returning id;
-    insert into public.credit_users (tenant_id, email, name, role)
-    values ('<tenant id from above>', 'you@yourcompany.co.uk', 'Your Name', 'admin');
-    `
+insert into public.tenants (name, settings)
+values ('Your Company Ltd', '{"allowed_domains":["yourcompany.co.uk"],"notify_emails":["credit@yourcompany.co.uk"],"retention_days":30}')
+returning id;
+insert into public.credit_users (tenant_id, email, name, role)
+values ('<tenant id from above>', 'you@yourcompany.co.uk', 'Your Name', 'admin');
+`
       Then sign in at `/login` with that email. Add reps and other users from the app.
 
 ## 2. Twilio WhatsApp
