@@ -37,7 +37,15 @@ export class TwilioClient {
         signal: AbortSignal.timeout(10_000),
       },
     );
-    if (!res.ok) throw new Error(`twilio send failed (${res.status})`);
+    if (!res.ok) {
+      const detail = (await res.json().catch(() => null)) as {
+        code?: number;
+        message?: string;
+      } | null;
+      throw new Error(
+        `twilio send failed (${res.status}${detail?.code ? `, code ${detail.code}` : ''}${detail?.message ? `: ${detail.message.slice(0, 120)}` : ''})`,
+      );
+    }
     const json = (await res.json()) as { sid?: string };
     return json.sid ?? '';
   }
@@ -48,7 +56,10 @@ export class TwilioClient {
       headers: { authorization: this.auth },
       signal: AbortSignal.timeout(20_000),
     });
-    if (!res.ok) throw new Error(`twilio media fetch failed (${res.status})`);
+    if (!res.ok)
+      throw new Error(
+        `twilio media fetch failed (${res.status} from ${new URL(res.url || url).host})`,
+      );
     const contentType = res.headers.get('content-type') ?? 'application/octet-stream';
     return { bytes: new Uint8Array(await res.arrayBuffer()), contentType };
   }
