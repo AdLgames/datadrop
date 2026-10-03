@@ -72,7 +72,11 @@ export const loadEnv = (source: NodeJS.ProcessEnv = process.env): Env => {
     const issues = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');
     throw new Error(`Invalid environment: ${issues}`);
   }
-  const env: Env = { ...parsed.data, logLevel: parseLogLevel(parsed.data.LOG_LEVEL) };
+  const env: Env = {
+    ...parsed.data,
+    ...(parsed.data.APP_URL ? { APP_URL: parsed.data.APP_URL.replace(/\/+$/, '') } : {}),
+    logLevel: parseLogLevel(parsed.data.LOG_LEVEL),
+  };
   if (source === process.env) cached = env;
   return env;
 };

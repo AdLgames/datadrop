@@ -1,6 +1,11 @@
 import { waitUntil } from '@vercel/functions';
 import type { Route } from './+types/webhooks.twilio';
-import { parseInbound, twiml, validTwilioSignature } from '../lib/twilio';
+import {
+  candidateWebhookUrls,
+  parseInbound,
+  twiml,
+  validTwilioSignatureForRequest,
+} from '../lib/twilio';
 import { getApp } from '../services/app.server';
 import { receive } from '../services/intake.server';
 
@@ -21,16 +26,21 @@ export const action = async ({ request }: Route.ActionArgs) => {
   const raw = await request.text();
   const params: Record<string, string> = {};
   for (const [k, v] of new URLSearchParams(raw)) params[k] = v;
-  const publicUrl = `${app.appUrl ?? new URL(request.url).origin}/webhooks/twilio`;
+  const signature = request.headers.get('x-twilio-signature');
   if (
-    !validTwilioSignature(
+    !validTwilioSignatureForRequest(
       app.env.TWILIO_AUTH_TOKEN,
-      publicUrl,
+      request,
+      app.appUrl,
       params,
-      request.headers.get('x-twilio-signature'),
+      signature,
     )
   ) {
-    app.logger.warn('twilio.bad_signature');
+    // The candidate URLs carry no secrets; they are what to compare with the Twilio console.
+    app.logger.warn('twilio.bad_signature', {
+      signed: signature !== null,
+      tried: candidateWebhookUrls(request, app.appUrl),
+    });
     return new Response('forbidden', { status: 403 });
   }
   const msg = parseInbound(params);
