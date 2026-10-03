@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { parseInbound, twiml, twilioSignature, validTwilioSignature } from './twilio';
+import {
+  candidateWebhookUrls,
+  parseInbound,
+  twiml,
+  twilioSignature,
+  validTwilioSignature,
+  validTwilioSignatureForRequest,
+} from './twilio';
 
 describe('twilio helpers', () => {
   it('computes the documented signature (Twilio security docs example)', () => {
@@ -47,5 +54,55 @@ describe('twilio helpers', () => {
   it('escapes TwiML', () => {
     expect(twiml('a < b & "c"')).toContain('<Message>a &lt; b &amp; &quot;c&quot;</Message>');
     expect(twiml()).toBe('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
+  });
+
+  it('accepts a signature made over the public URL with or without a trailing slash, behind a proxy', () => {
+    const params = { MessageSid: 'SM1', From: 'whatsapp:+447718050880', Body: 'hi' };
+    const req = (url: string, headers: Record<string, string> = {}) => ({
+      url,
+      headers: { get: (n: string) => headers[n.toLowerCase()] ?? null },
+    });
+    const internal = req('http://127.0.0.1:3000/webhooks/twilio', {
+      'x-forwarded-proto': 'https',
+      'x-forwarded-host': 'freightx-chi.vercel.app',
+    });
+    const tried = candidateWebhookUrls(internal, 'https://freightx-chi.vercel.app/');
+    expect(tried).toContain('https://freightx-chi.vercel.app/webhooks/twilio');
+    expect(tried).toContain('https://freightx-chi.vercel.app/webhooks/twilio/');
+    for (const signedUrl of [
+      'https://freightx-chi.vercel.app/webhooks/twilio',
+      'https://freightx-chi.vercel.app/webhooks/twilio/',
+    ]) {
+      const sig = twilioSignature('tok', signedUrl, params);
+      expect(
+        validTwilioSignatureForRequest(
+          'tok',
+          internal,
+          'https://freightx-chi.vercel.app',
+          params,
+          sig,
+        ),
+      ).toBe(true);
+    }
+    const other = twilioSignature('tok', 'https://evil.example/webhooks/twilio', params);
+    expect(
+      validTwilioSignatureForRequest(
+        'tok',
+        internal,
+        'https://freightx-chi.vercel.app',
+        params,
+        other,
+      ),
+    ).toBe(false);
+    const good = twilioSignature('tok', 'https://freightx-chi.vercel.app/webhooks/twilio', params);
+    expect(
+      validTwilioSignatureForRequest(
+        'wrong',
+        internal,
+        'https://freightx-chi.vercel.app',
+        params,
+        good,
+      ),
+    ).toBe(false);
   });
 });

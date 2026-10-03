@@ -28,6 +28,44 @@ export const validTwilioSignature = (
   return expected.length === given.length && timingSafeEqual(expected, given);
 };
 
+/**
+ * The URLs Twilio may have signed for this request: the canonical APP_URL form, the request's own
+ * URL as the platform saw it (behind Vercel's proxy, via x-forwarded-*), and each with and
+ * without a trailing slash and with the port stripped. Twilio signs exactly the string configured
+ * in its console, so a mismatch in any of those details otherwise rejects every message.
+ */
+export const candidateWebhookUrls = (
+  request: { url: string; headers: { get(name: string): string | null } },
+  appUrl: string | null,
+): string[] => {
+  const u = new URL(request.url);
+  const proto = request.headers.get('x-forwarded-proto') ?? u.protocol.replace(':', '');
+  const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host') ?? u.host;
+  const pathAndQuery = `${u.pathname}${u.search}`;
+  const bases = new Set<string>();
+  if (appUrl) bases.add(appUrl.replace(/\/+$/, ''));
+  bases.add(`${proto}://${host}`);
+  bases.add(`https://${host.replace(/:\d+$/, '')}`);
+  const out = new Set<string>();
+  for (const base of bases) {
+    const plain = `${base}${pathAndQuery}`;
+    out.add(plain);
+    out.add(u.search ? plain.replace(u.search, `/${u.search}`) : `${plain}/`);
+  }
+  return [...out];
+};
+
+export const validTwilioSignatureForRequest = (
+  authToken: string,
+  request: { url: string; headers: { get(name: string): string | null } },
+  appUrl: string | null,
+  params: Record<string, string>,
+  signature: string | null,
+): boolean =>
+  candidateWebhookUrls(request, appUrl).some((url) =>
+    validTwilioSignature(authToken, url, params, signature),
+  );
+
 export interface InboundMessage {
   messageSid: string;
   /** E.164 without the whatsapp: prefix. */
