@@ -216,7 +216,19 @@ const process = async (
         fresh.push({ bytes, contentType });
       } catch (err) {
         log.warn('intake.media_failed', { error: err });
-        await trace(db, tenant.id, application.id, 'intake.media_failed', err);
+        // Which account the media URL belongs to (a SID, not personal data) vs the one Twilio posted.
+        const mediaAccount = /\/Accounts\/(AC[0-9a-f]{32})\//i.exec(m.url)?.[1] ?? null;
+        await trace(
+          db,
+          tenant.id,
+          application.id,
+          'intake.media_failed',
+          err instanceof Error
+            ? new Error(
+                `${err.message}; media account ${mediaAccount ?? 'unknown'}; webhook account ${msg.accountSid ?? 'unknown'}; configured ${app.twilio!.configuredAccountSid.slice(0, 8)}…`,
+              )
+            : err,
+        );
       }
     }
 
