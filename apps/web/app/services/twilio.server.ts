@@ -21,18 +21,27 @@ export class TwilioClient {
     this.fetchImpl = opts.fetchImpl ?? ((input, init) => fetch(input, init));
   }
 
-  private get auth(): string {
-    return `Basic ${Buffer.from(`${this.opts.accountSid}:${this.opts.authToken}`).toString('base64')}`;
+  /** Basic auth; `accountSid` overrides the configured one (Twilio names it in every webhook). */
+  private auth(accountSid?: string | null): string {
+    const sid = accountSid ?? this.opts.accountSid;
+    return `Basic ${Buffer.from(`${sid}:${this.opts.authToken}`).toString('base64')}`;
+  }
+
+  get configuredAccountSid(): string {
+    return this.opts.accountSid;
   }
 
   /** Returns the Twilio message SID. Throws on failure (callers log and carry on). */
-  async sendWhatsApp(toE164: string, body: string): Promise<string> {
+  async sendWhatsApp(toE164: string, body: string, accountSid?: string | null): Promise<string> {
     const form = new URLSearchParams({ From: this.opts.from, To: toWhatsApp(toE164), Body: body });
     const res = await this.fetchImpl(
-      `https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(this.opts.accountSid)}/Messages.json`,
+      `https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(accountSid ?? this.opts.accountSid)}/Messages.json`,
       {
         method: 'POST',
-        headers: { authorization: this.auth, 'content-type': 'application/x-www-form-urlencoded' },
+        headers: {
+          authorization: this.auth(accountSid),
+          'content-type': 'application/x-www-form-urlencoded',
+        },
         body: form.toString(),
         signal: AbortSignal.timeout(10_000),
       },
@@ -51,9 +60,12 @@ export class TwilioClient {
   }
 
   /** Follows Twilio's redirect to the media store; returns bytes and the final content type. */
-  async fetchMedia(url: string): Promise<{ bytes: Uint8Array; contentType: string }> {
+  async fetchMedia(
+    url: string,
+    accountSid?: string | null,
+  ): Promise<{ bytes: Uint8Array; contentType: string }> {
     const res = await this.fetchImpl(url, {
-      headers: { authorization: this.auth },
+      headers: { authorization: this.auth(accountSid) },
       signal: AbortSignal.timeout(20_000),
     });
     if (!res.ok)
