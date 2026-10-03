@@ -29,6 +29,7 @@ describe('twilio helpers', () => {
   it('parses an inbound WhatsApp message with media', () => {
     const msg = parseInbound({
       MessageSid: 'SM1',
+      AccountSid: 'ACf04282e3100000000000000000000000',
       From: 'whatsapp:+447700900123',
       Body: ' hi ',
       NumMedia: '2',
@@ -40,6 +41,7 @@ describe('twilio helpers', () => {
     });
     expect(msg).toEqual({
       messageSid: 'SM1',
+      accountSid: 'ACf04282e3100000000000000000000000',
       from: '+447700900123',
       body: 'hi',
       media: [

@@ -188,11 +188,22 @@ const process = async (
       action: 'intake.started',
       detail: { media: msg.media.length, text: msg.body.length > 0 },
     });
+    if (msg.accountSid && msg.accountSid !== app.twilio!.configuredAccountSid) {
+      await audit(db, {
+        tenant_id: tenant.id,
+        application_id: application.id,
+        actor: 'system',
+        action: 'twilio.account_sid_mismatch',
+        detail: {
+          hint: 'TWILIO_ACCOUNT_SID differs from the account Twilio posted; using the posted one',
+        },
+      });
+    }
     // 1. Media into our bucket (Twilio URLs expire and need our credentials).
     const fresh: ExtractionImage[] = [];
     for (const m of msg.media) {
       try {
-        const { bytes, contentType } = await app.twilio!.fetchMedia(m.url);
+        const { bytes, contentType } = await app.twilio!.fetchMedia(m.url, msg.accountSid);
         await storeDocument(db, {
           tenantId: tenant.id,
           applicationId: application.id,
@@ -228,6 +239,7 @@ const process = async (
         application,
         receivedAt: input.receivedAt,
         text: REPLIES.notAForm,
+        accountSid: msg.accountSid,
       });
       return;
     }
@@ -264,6 +276,7 @@ const process = async (
         application,
         receivedAt: input.receivedAt,
         text: REPLIES.notAForm,
+        accountSid: msg.accountSid,
       });
       return;
     }
@@ -278,6 +291,7 @@ const process = async (
         application,
         receivedAt: input.receivedAt,
         text: REPLIES.unreadable(result.unreadableReason),
+        accountSid: msg.accountSid,
       });
       return;
     }
@@ -346,7 +360,14 @@ const process = async (
             companiesHouse: lookups.companies_house ?? null,
           })
         : updatedMessage({ template: template.definition, data: application.data, evaluation });
-    await quietReply(deps, db, { tenant, rep, application, receivedAt: input.receivedAt, text });
+    await quietReply(deps, db, {
+      tenant,
+      rep,
+      application,
+      receivedAt: input.receivedAt,
+      text,
+      accountSid: msg.accountSid,
+    });
   } catch (err) {
     log.error('intake.failed', { error: err });
     await trace(db, tenant.id, application.id, 'intake.failed', err);
@@ -475,15 +496,37 @@ const quietReply = async (
     application: ApplicationRow;
     receivedAt: string;
     text: string;
+    accountSid?: string | null;
   },
 ) => {
   const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+  await audit(db, {
+    tenant_id: input.tenant.id,
+    application_id: input.application.id,
+    actor: 'system',
+    action: 'intake.reply_scheduled',
+    detail: { quietSeconds: deps.app.env.REPLY_QUIET_SECONDS },
+  });
   await sleep(deps.app.env.REPLY_QUIET_SECONDS * 1000);
   if (await newerInboundExists(db, input.application.id, input.receivedAt)) {
     deps.app.logger.info('intake.reply_superseded', { applicationId: input.application.id });
+    await audit(db, {
+      tenant_id: input.tenant.id,
+      application_id: input.application.id,
+      actor: 'system',
+      action: 'intake.reply_superseded',
+    });
     return;
   }
-  await sendReply(deps, db, input.tenant, input.rep, input.application, input.text);
+  await sendReply(
+    deps,
+    db,
+    input.tenant,
+    input.rep,
+    input.application,
+    input.text,
+    input.accountSid,
+  );
 };
 
 export const sendReply = async (
@@ -493,10 +536,11 @@ export const sendReply = async (
   rep: RepRow,
   application: ApplicationRow | null,
   text: string,
+  accountSid?: string | null,
 ) => {
   let sid: string;
   try {
-    sid = await deps.app.twilio!.sendWhatsApp(rep.phone, text);
+    sid = await deps.app.twilio!.sendWhatsApp(rep.phone, text, accountSid);
   } catch (err) {
     await trace(db, tenant.id, application?.id ?? null, 'intake.reply_failed', err);
     throw err;

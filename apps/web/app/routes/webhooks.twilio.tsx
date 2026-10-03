@@ -14,6 +14,9 @@ import { receive } from '../services/intake.server';
  * (APP_URL + path), answered within Twilio's timeout, with the slow part (media, extraction, the
  * quiet period, the reply) kept alive after the response by `waitUntil`.
  */
+/** Vercel: the background step (media, extraction, quiet period, reply) needs well over the default. */
+export const config = { maxDuration: 120 };
+
 const xml = (body: string, status = 200) =>
   new Response(body, {
     status,

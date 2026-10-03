@@ -68,6 +68,8 @@ export const validTwilioSignatureForRequest = (
 
 export interface InboundMessage {
   messageSid: string;
+  /** The account that owns the message, as Twilio posted it; authoritative for media and replies. */
+  accountSid: string | null;
   /** E.164 without the whatsapp: prefix. */
   from: string;
   body: string;
@@ -88,6 +90,8 @@ export const parseInbound = (params: Record<string, string>): InboundMessage | n
   }
   return {
     messageSid: sid,
+    accountSid:
+      params.AccountSid && /^AC[0-9a-f]{32}$/i.test(params.AccountSid) ? params.AccountSid : null,
     from: from.replace(/^whatsapp:/, ''),
     body: (params.Body ?? '').trim(),
     media,

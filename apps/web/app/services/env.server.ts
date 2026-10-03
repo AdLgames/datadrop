@@ -40,7 +40,7 @@ const schema = z.object({
   /** Bearer token Vercel sends to cron routes. Unset: the cron routes answer 503. */
   CRON_SECRET: z.string().min(16).optional(),
   /** Seconds a rep is left quiet before the bot replies (multi-page forms arrive in bursts). */
-  REPLY_QUIET_SECONDS: z.coerce.number().int().min(2).max(120).default(45),
+  REPLY_QUIET_SECONDS: z.coerce.number().int().min(2).max(120).default(15),
 });
 
 export type Env = z.infer<typeof schema> & { logLevel: ReturnType<typeof parseLogLevel> };

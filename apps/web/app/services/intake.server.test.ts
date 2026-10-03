@@ -152,6 +152,7 @@ const app = () =>
     databaseConfigured: true,
     anthropic: {},
     twilio: {
+      configuredAccountSid: 'ACtest',
       sendWhatsApp: async (_to: string, body: string) => {
         sent.push(body);
         return `SM${sent.length}`;
@@ -175,6 +176,7 @@ const deps = () => ({
 
 const photo = (sid: string, body = '') => ({
   messageSid: sid,
+  accountSid: null,
   from: rep.phone,
   body,
   media: [{ url: 'https://m/1', contentType: 'image/jpeg' }],
@@ -182,6 +184,7 @@ const photo = (sid: string, body = '') => ({
 });
 const text = (sid: string, body: string) => ({
   messageSid: sid,
+  accountSid: null,
   from: rep.phone,
   body,
   media: [],
