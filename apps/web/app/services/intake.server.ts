@@ -181,6 +181,13 @@ const process = async (
   let application = input.application;
   const { tenant, rep, template, msg } = input;
   try {
+    await audit(db, {
+      tenant_id: tenant.id,
+      application_id: application.id,
+      actor: 'system',
+      action: 'intake.started',
+      detail: { media: msg.media.length, text: msg.body.length > 0 },
+    });
     // 1. Media into our bucket (Twilio URLs expire and need our credentials).
     const fresh: ExtractionImage[] = [];
     for (const m of msg.media) {
@@ -198,6 +205,7 @@ const process = async (
         fresh.push({ bytes, contentType });
       } catch (err) {
         log.warn('intake.media_failed', { error: err });
+        await trace(db, tenant.id, application.id, 'intake.media_failed', err);
       }
     }
 
@@ -230,6 +238,13 @@ const process = async (
       text: msg.body,
       existing: application.data,
       asked: askedFields(template.definition, application.missing_fields),
+    });
+    await audit(db, {
+      tenant_id: tenant.id,
+      application_id: application.id,
+      actor: 'system',
+      action: 'intake.extracted',
+      detail: { images: images.length, isForm: result.isAccountForm },
     });
     log.info('intake.extracted', {
       images: images.length,
@@ -334,6 +349,7 @@ const process = async (
     await quietReply(deps, db, { tenant, rep, application, receivedAt: input.receivedAt, text });
   } catch (err) {
     log.error('intake.failed', { error: err });
+    await trace(db, tenant.id, application.id, 'intake.failed', err);
     try {
       await sendReply(
         deps,
@@ -423,6 +439,32 @@ const submit = async (
   }
 };
 
+/**
+ * Failures in the background step are invisible from the outside (the webhook already answered
+ * Twilio), so each one is also written to the audit log with its message. The message carries no
+ * personal data (provider status lines, our own error text), never the form contents.
+ */
+const trace = async (
+  db: SupabaseClient,
+  tenantId: string,
+  applicationId: string | null,
+  action: string,
+  err: unknown,
+): Promise<void> => {
+  const message = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+  try {
+    await audit(db, {
+      tenant_id: tenantId,
+      application_id: applicationId,
+      actor: 'system',
+      action,
+      detail: { error: message.slice(0, 300) },
+    });
+  } catch {
+    // the audit log itself is unavailable; nothing more to do
+  }
+};
+
 /** Wait for the rep to go quiet, then reply unless a later message is handling it. */
 const quietReply = async (
   deps: IntakeDeps,
@@ -452,7 +494,13 @@ export const sendReply = async (
   application: ApplicationRow | null,
   text: string,
 ) => {
-  const sid = await deps.app.twilio!.sendWhatsApp(rep.phone, text);
+  let sid: string;
+  try {
+    sid = await deps.app.twilio!.sendWhatsApp(rep.phone, text);
+  } catch (err) {
+    await trace(db, tenant.id, application?.id ?? null, 'intake.reply_failed', err);
+    throw err;
+  }
   await recordMessage(db, {
     tenant_id: tenant.id,
     application_id: application?.id ?? null,
