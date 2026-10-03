@@ -8,7 +8,7 @@ import { userClient } from '../services/supabase.server';
 
 const schema = z.object({
   email: z.string().email().max(254),
-  code: z.string().regex(/^\d{6}$/),
+  code: z.string().regex(/^\d{6,10}$/),
   next: z.string().max(200).optional(),
 });
 
@@ -33,7 +33,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
     next: form?.get('next') || undefined,
   });
   if (!parsed.success)
-    return data({ error: 'Enter the 6-digit code from the email.' }, { status: 400 });
+    return data({ error: 'Enter the code from the email (digits only).' }, { status: 400 });
   const { supabase, headers } = userClient(app.env, request);
   const { error } = await supabase.auth.verifyOtp({
     email: parsed.data.email.toLowerCase(),
@@ -68,7 +68,7 @@ export default function LoginCode({ loaderData }: Route.ComponentProps) {
           type="text"
           inputMode="numeric"
           autoComplete="one-time-code"
-          pattern="[0-9 ]{6,7}"
+          pattern="[0-9 ]{6,12}"
           required
         />
         <button type="submit">Sign in</button>
