@@ -250,18 +250,25 @@ export const recordMessage = async (
   return { id: (data as { id: string }).id };
 };
 
-/** True when another inbound message for this application arrived after `sinceIso`. */
+/**
+ * True when another inbound message for this application arrived after `sinceIso`. The triggering
+ * message is excluded by id: its own row is stamped by the database a few milliseconds after the
+ * timestamp the caller took, so it would otherwise count as newer than itself.
+ */
 export const newerInboundExists = async (
   db: SupabaseClient,
   applicationId: string,
   sinceIso: string,
+  excludeMessageId: string | null = null,
 ): Promise<boolean> => {
-  const { count, error } = await db
+  let q = db
     .from('messages')
     .select('id', { count: 'exact', head: true })
     .eq('application_id', applicationId)
     .eq('direction', 'in')
     .gt('created_at', sinceIso);
+  if (excludeMessageId) q = q.neq('id', excludeMessageId);
+  const { count, error } = await q;
   if (error) fail('messages.count', error);
   return (count ?? 0) > 0;
 };

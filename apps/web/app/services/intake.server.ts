@@ -252,6 +252,7 @@ const process = async (
         receivedAt: input.receivedAt,
         text: REPLIES.notAForm,
         accountSid: msg.accountSid,
+        messageId: input.messageId,
       });
       return;
     }
@@ -289,6 +290,7 @@ const process = async (
         receivedAt: input.receivedAt,
         text: REPLIES.notAForm,
         accountSid: msg.accountSid,
+        messageId: input.messageId,
       });
       return;
     }
@@ -304,6 +306,7 @@ const process = async (
         receivedAt: input.receivedAt,
         text: REPLIES.unreadable(result.unreadableReason),
         accountSid: msg.accountSid,
+        messageId: input.messageId,
       });
       return;
     }
@@ -379,6 +382,7 @@ const process = async (
       receivedAt: input.receivedAt,
       text,
       accountSid: msg.accountSid,
+      messageId: input.messageId,
     });
   } catch (err) {
     log.error('intake.failed', { error: err });
@@ -509,6 +513,7 @@ const quietReply = async (
     receivedAt: string;
     text: string;
     accountSid?: string | null;
+    messageId?: string | null;
   },
 ) => {
   const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
@@ -520,7 +525,9 @@ const quietReply = async (
     detail: { quietSeconds: deps.app.env.REPLY_QUIET_SECONDS },
   });
   await sleep(deps.app.env.REPLY_QUIET_SECONDS * 1000);
-  if (await newerInboundExists(db, input.application.id, input.receivedAt)) {
+  if (
+    await newerInboundExists(db, input.application.id, input.receivedAt, input.messageId ?? null)
+  ) {
     deps.app.logger.info('intake.reply_superseded', { applicationId: input.application.id });
     await audit(db, {
       tenant_id: input.tenant.id,
