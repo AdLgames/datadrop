@@ -104,19 +104,30 @@ vi.mock('./db.server', () => ({
     if (row.wa_message_id && store.messages.some((m) => m.wa_message_id === row.wa_message_id))
       return 'duplicate';
     const id = `m${store.messages.length + 1}`;
+    // Postgres stamps the row a few ms after the caller took its timestamp.
+    const createdAt = new Date(clock.getTime() + 5).toISOString();
     store.messages.push({
       id,
       application_id: row.application_id,
       direction: row.direction,
       body: row.body,
       wa_message_id: row.wa_message_id,
-      created_at: clock.toISOString(),
+      created_at: createdAt,
     });
     return { id };
   },
-  newerInboundExists: async (_db: unknown, applicationId: string, sinceIso: string) =>
+  newerInboundExists: async (
+    _db: unknown,
+    applicationId: string,
+    sinceIso: string,
+    excludeMessageId: string | null = null,
+  ) =>
     store.messages.some(
-      (m) => m.application_id === applicationId && m.direction === 'in' && m.created_at > sinceIso,
+      (m) =>
+        m.application_id === applicationId &&
+        m.direction === 'in' &&
+        m.created_at > sinceIso &&
+        m.id !== excludeMessageId,
     ),
   audit: async (_db: unknown, row: { action: string }) => {
     store.audits.push(row.action);
