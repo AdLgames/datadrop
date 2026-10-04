@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import type { InboundMessage } from './messaging';
 
 /**
  * Twilio webhook helpers, pure and unit-tested. The request signature is HMAC-SHA1 over the
@@ -66,16 +67,7 @@ export const validTwilioSignatureForRequest = (
     validTwilioSignature(authToken, url, params, signature),
   );
 
-export interface InboundMessage {
-  messageSid: string;
-  /** The account that owns the message, as Twilio posted it; authoritative for media and replies. */
-  accountSid: string | null;
-  /** E.164 without the whatsapp: prefix. */
-  from: string;
-  body: string;
-  media: Array<{ url: string; contentType: string }>;
-  profileName: string | null;
-}
+export type { InboundMessage } from './messaging';
 
 export const parseInbound = (params: Record<string, string>): InboundMessage | null => {
   const sid = params.MessageSid ?? params.SmsMessageSid;
@@ -86,10 +78,11 @@ export const parseInbound = (params: Record<string, string>): InboundMessage | n
   for (let i = 0; i < (Number.isFinite(count) ? count : 0); i += 1) {
     const url = params[`MediaUrl${i}`];
     const contentType = params[`MediaContentType${i}`] ?? 'application/octet-stream';
-    if (url) media.push({ url, contentType });
+    if (url) media.push({ ref: url, contentType });
   }
   return {
-    messageSid: sid,
+    provider: 'twilio',
+    messageId: sid,
     accountSid:
       params.AccountSid && /^AC[0-9a-f]{32}$/i.test(params.AccountSid) ? params.AccountSid : null,
     from: from.replace(/^whatsapp:/, ''),

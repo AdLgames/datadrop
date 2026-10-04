@@ -7,6 +7,7 @@ export default [
   route('login/code', 'routes/login.code.tsx'),
   route('logout', 'routes/logout.tsx'),
   route('webhooks/twilio', 'routes/webhooks.twilio.tsx'),
+  route('webhooks/meta', 'routes/webhooks.meta.tsx'),
   route('api/cron/retention', 'routes/api.cron.retention.tsx'),
   layout('routes/app.tsx', [
     ...prefix('app', [

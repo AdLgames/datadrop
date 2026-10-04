@@ -6,6 +6,7 @@ export const loader = () => {
     ok: true,
     database: app.databaseConfigured,
     twilio: app.twilio !== null,
+    meta: app.meta !== null,
     extraction: app.anthropic !== null,
     email: app.email?.name ?? null,
     startedAt: app.startedAt.toISOString(),

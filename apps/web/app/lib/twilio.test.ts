@@ -40,13 +40,14 @@ describe('twilio helpers', () => {
       ProfileName: 'Dave',
     });
     expect(msg).toEqual({
-      messageSid: 'SM1',
+      provider: 'twilio',
+      messageId: 'SM1',
       accountSid: 'ACf04282e3100000000000000000000000',
       from: '+447700900123',
       body: 'hi',
       media: [
-        { url: 'https://api.twilio.com/m/0', contentType: 'image/jpeg' },
-        { url: 'https://api.twilio.com/m/1', contentType: 'image/png' },
+        { ref: 'https://api.twilio.com/m/0', contentType: 'image/jpeg' },
+        { ref: 'https://api.twilio.com/m/1', contentType: 'image/png' },
       ],
       profileName: 'Dave',
     });

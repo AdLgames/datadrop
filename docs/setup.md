@@ -16,11 +16,11 @@ The schema, RLS policies, the `forms` bucket and the reference counter are alrea
       address on its first code request) and _Magic Link_ (sent to existing users) so the code is first:
       `html
     <h2>Your AccountDrop sign-in code</h2>
-            <p style="font-size:28px;letter-spacing:4px"><strong>{{ .Token }}</strong></p>
-            <p>Enter it at {{ .SiteURL }}/login/code. It expires in 10 minutes. If you didn't request it, ignore this email.</p>
-            `
-              Subject: `Your AccountDrop sign-in code`. (The app sends codes, never links, so corporate link
-              scanners cannot consume them.)
+                <p style="font-size:28px;letter-spacing:4px"><strong>{{ .Token }}</strong></p>
+                <p>Enter it at {{ .SiteURL }}/login/code. It expires in 10 minutes. If you didn't request it, ignore this email.</p>
+                `
+                  Subject: `Your AccountDrop sign-in code`. (The app sends codes, never links, so corporate link
+                  scanners cannot consume them.)
 - [ ] **you** Authentication → SMTP settings: custom SMTP via Resend (`smtp.resend.com`, port 465,
       user `resend`, password = your Resend API key, sender on your verified domain). Supabase's
       built-in sender is limited to a few emails an hour and is not for production.
@@ -48,6 +48,29 @@ values ('<tenant id from above>', 'you@yourcompany.co.uk', 'Your Name', 'admin')
       status-update templates (approved / returned / rejected / reminder) both depend on it.
 - [ ] Status updates outside the 24-hour window need approved templates; until then they are sent
       as plain messages and simply fail (logged) when the window has closed.
+
+## 2b. Meta WhatsApp Cloud API (instead of, or as well as, Twilio)
+
+No company registration, no number purchase: Meta gives every developer app a test number that
+can talk to up to five phone numbers you nominate. Needs a Facebook login.
+
+- [ ] **you** https://developers.facebook.com → My Apps → Create App → use case "Other", type
+      **Business**, name it. Create a business portfolio if asked (your name and address; nothing
+      is verified at this stage).
+- [ ] **you** App dashboard → **WhatsApp → Set up** → **API Setup**: copy **Phone number ID** →
+      `META_PHONE_NUMBER_ID` and the **temporary access token** → `META_ACCESS_TOKEN` (24 h).
+      Under **To**, _Manage phone number list_: add each rep's number and confirm the code.
+- [ ] **you** App settings → Basic → **App secret** → `META_APP_SECRET`.
+- [ ] Choose a `META_VERIFY_TOKEN` (any 12+ characters). Set all four in Vercel, redeploy.
+- [ ] **you** WhatsApp → Configuration → Webhook → Edit: callback
+      `https://<APP_URL>/webhooks/meta`, verify token = `META_VERIFY_TOKEN`, Verify and save.
+      Then subscribe to the **messages** field.
+- [ ] Permanent token, before the 24 h token expires: Meta Business Settings → Users → System
+      users → Add (admin) → Assign assets: the app, full control → Generate token with
+      `whatsapp_business_messaging` and `whatsapp_business_management`. Replace
+      `META_ACCESS_TOKEN`, redeploy.
+- [ ] Reps message the test number directly; no join phrase. Decision notifications go through
+      Meta when it is configured, else Twilio.
 
 ## 3. Claude, Companies House, email
 

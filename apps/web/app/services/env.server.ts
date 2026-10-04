@@ -28,6 +28,20 @@ const schema = z.object({
     .regex(/^whatsapp:\+\d{7,15}$/)
     .optional(),
 
+  /** Meta WhatsApp Cloud API (a test number or a registered business number). */
+  META_ACCESS_TOKEN: z.string().min(20).optional(),
+  META_PHONE_NUMBER_ID: z
+    .string()
+    .regex(/^\d{6,32}$/)
+    .optional(),
+  META_APP_SECRET: z.string().min(16).optional(),
+  /** Any string you choose; pasted into Meta's webhook settings to prove the callback URL is yours. */
+  META_VERIFY_TOKEN: z.string().min(12).max(200).optional(),
+  META_GRAPH_VERSION: z
+    .string()
+    .regex(/^v\d+\.\d+$/)
+    .default('v22.0'),
+
   ANTHROPIC_API_KEY: z.string().min(10).optional(),
   EXTRACTION_MODEL: z.string().min(1).default('claude-opus-5-5'),
 
@@ -59,6 +73,11 @@ export const loadEnv = (source: NodeJS.ProcessEnv = process.env): Env => {
     TWILIO_ACCOUNT_SID: blank(source.TWILIO_ACCOUNT_SID),
     TWILIO_AUTH_TOKEN: blank(source.TWILIO_AUTH_TOKEN),
     TWILIO_WHATSAPP_FROM: blank(source.TWILIO_WHATSAPP_FROM),
+    META_ACCESS_TOKEN: blank(source.META_ACCESS_TOKEN),
+    META_PHONE_NUMBER_ID: blank(source.META_PHONE_NUMBER_ID),
+    META_APP_SECRET: blank(source.META_APP_SECRET),
+    META_VERIFY_TOKEN: blank(source.META_VERIFY_TOKEN),
+    META_GRAPH_VERSION: blank(source.META_GRAPH_VERSION),
     ANTHROPIC_API_KEY: blank(source.ANTHROPIC_API_KEY),
     EXTRACTION_MODEL: blank(source.EXTRACTION_MODEL),
     COMPANIES_HOUSE_API_KEY: blank(source.COMPANIES_HOUSE_API_KEY),
