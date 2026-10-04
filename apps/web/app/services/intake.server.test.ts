@@ -151,6 +151,15 @@ const emails: Array<{ to: string; subject: string; text: string }> = [];
 const sent: string[] = [];
 const extractImpl = vi.fn();
 
+const fakeProvider = {
+  name: 'twilio' as const,
+  sendText: async (_to: string, body: string) => {
+    sent.push(body);
+    return `SM${sent.length}`;
+  },
+  fetchMedia: async () => ({ bytes: new Uint8Array([1, 2, 3]), contentType: 'image/jpeg' }),
+};
+
 const app = () =>
   ({
     env: {
@@ -162,8 +171,9 @@ const app = () =>
     logger: createLogger({ level: 'error' }),
     databaseConfigured: true,
     anthropic: {},
-    twilio: {
-      configuredAccountSid: 'ACtest',
+    twilio: { configuredAccountSid: 'ACtest' },
+    messaging: { default: fakeProvider, for: () => fakeProvider },
+    twilioUnused: {
       sendWhatsApp: async (_to: string, body: string) => {
         sent.push(body);
         return `SM${sent.length}`;
@@ -186,15 +196,17 @@ const deps = () => ({
 });
 
 const photo = (sid: string, body = '') => ({
-  messageSid: sid,
+  provider: 'twilio' as const,
+  messageId: sid,
   accountSid: null,
   from: rep.phone,
   body,
-  media: [{ url: 'https://m/1', contentType: 'image/jpeg' }],
+  media: [{ ref: 'https://m/1', contentType: 'image/jpeg' }],
   profileName: null,
 });
 const text = (sid: string, body: string) => ({
-  messageSid: sid,
+  provider: 'twilio' as const,
+  messageId: sid,
   accountSid: null,
   from: rep.phone,
   body,

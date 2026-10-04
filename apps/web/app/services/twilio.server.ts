@@ -1,3 +1,4 @@
+import type { InboundMedia, MessagingProvider } from '../lib/messaging';
 import { toWhatsApp } from '../lib/twilio';
 
 /**
@@ -15,7 +16,8 @@ export interface TwilioClientOptions {
   fetchImpl?: TwilioFetch;
 }
 
-export class TwilioClient {
+export class TwilioClient implements MessagingProvider {
+  readonly name = 'twilio' as const;
   private readonly fetchImpl: TwilioFetch;
   constructor(private readonly opts: TwilioClientOptions) {
     this.fetchImpl = opts.fetchImpl ?? ((input, init) => fetch(input, init));
@@ -59,8 +61,19 @@ export class TwilioClient {
     return json.sid ?? '';
   }
 
+  sendText(toE164: string, body: string, ctx?: { accountSid?: string | null }): Promise<string> {
+    return this.sendWhatsApp(toE164, body, ctx?.accountSid);
+  }
+
+  fetchMedia(
+    media: InboundMedia,
+    ctx?: { accountSid?: string | null },
+  ): Promise<{ bytes: Uint8Array; contentType: string }> {
+    return this.fetchMediaUrl(media.ref, ctx?.accountSid);
+  }
+
   /** Follows Twilio's redirect to the media store; returns bytes and the final content type. */
-  async fetchMedia(
+  async fetchMediaUrl(
     url: string,
     accountSid?: string | null,
   ): Promise<{ bytes: Uint8Array; contentType: string }> {

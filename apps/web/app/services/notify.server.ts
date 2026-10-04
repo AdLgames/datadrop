@@ -64,7 +64,8 @@ export const notifyRepDecision = async (
   input: { tenant: TenantRow; rep: RepRow; application: ApplicationRow },
 ): Promise<void> => {
   const { tenant, rep, application } = input;
-  if (tenant.settings.rep_notifications === false || !app.twilio) return;
+  const provider = app.messaging.default;
+  if (tenant.settings.rep_notifications === false || !provider) return;
   const status = application.status;
   if (status !== 'approved' && status !== 'returned' && status !== 'rejected') return;
   const text = REPLIES.decision(
@@ -76,7 +77,7 @@ export const notifyRepDecision = async (
     application.approved_limit,
   );
   try {
-    const sid = await app.twilio.sendWhatsApp(rep.phone, text);
+    const sid = await provider.sendText(rep.phone, text);
     await recordMessage(db, {
       tenant_id: tenant.id,
       application_id: application.id,

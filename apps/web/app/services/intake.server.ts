@@ -8,7 +8,7 @@ import {
 } from '../lib/conversation';
 import { evaluate, mergeData, type Evaluation } from '../lib/rules';
 import type { ApplicationData } from '../lib/template';
-import type { InboundMessage } from '../lib/twilio';
+import type { InboundMessage, MessagingProvider } from '../lib/messaging';
 import type { AppServices } from './app.server';
 import {
   activeTemplate,
@@ -70,7 +70,7 @@ export type IntakeOutcome =
 export const receive = async (msg: InboundMessage, deps: IntakeDeps): Promise<IntakeOutcome> => {
   const { app } = deps;
   const now = deps.now ?? (() => new Date());
-  if (!app.databaseConfigured || !app.anthropic || !app.twilio) {
+  if (!app.databaseConfigured || !app.anthropic || !app.messaging.for(msg.provider)) {
     return { kind: 'not_configured', reply: REPLIES.notConfigured };
   }
   const db = deps.db ?? serviceClient(app.env);
@@ -82,7 +82,7 @@ export const receive = async (msg: InboundMessage, deps: IntakeDeps): Promise<In
       application_id: null,
       rep_id: null,
       direction: 'in',
-      wa_message_id: msg.messageSid,
+      wa_message_id: msg.messageId,
       from_phone: null,
       body: null,
       media_count: msg.media.length,
@@ -115,7 +115,7 @@ export const receive = async (msg: InboundMessage, deps: IntakeDeps): Promise<In
         application_id: latest.id,
         rep_id: rep.id,
         direction: 'in',
-        wa_message_id: msg.messageSid,
+        wa_message_id: msg.messageId,
         from_phone: rep.phone,
         body: msg.body,
         media_count: 0,
@@ -131,6 +131,8 @@ export const receive = async (msg: InboundMessage, deps: IntakeDeps): Promise<In
             rep,
             latest,
             REPLIES.alreadySubmitted(latest.ref, latest.data.legal_name ?? null),
+            msg.accountSid,
+            msg.provider,
           );
         },
       };
@@ -142,7 +144,7 @@ export const receive = async (msg: InboundMessage, deps: IntakeDeps): Promise<In
     application_id: application.id,
     rep_id: rep.id,
     direction: 'in',
-    wa_message_id: msg.messageSid,
+    wa_message_id: msg.messageId,
     from_phone: rep.phone,
     body: msg.body || null,
     media_count: msg.media.length,
@@ -188,7 +190,8 @@ const process = async (
       action: 'intake.started',
       detail: { media: msg.media.length, text: msg.body.length > 0 },
     });
-    if (msg.accountSid && msg.accountSid !== app.twilio!.configuredAccountSid) {
+    const provider: MessagingProvider = app.messaging.for(msg.provider)!;
+    if (msg.accountSid && app.twilio && msg.accountSid !== app.twilio.configuredAccountSid) {
       await audit(db, {
         tenant_id: tenant.id,
         application_id: application.id,
@@ -203,7 +206,7 @@ const process = async (
     const fresh: ExtractionImage[] = [];
     for (const m of msg.media) {
       try {
-        const { bytes, contentType } = await app.twilio!.fetchMedia(m.url, msg.accountSid);
+        const { bytes, contentType } = await provider.fetchMedia(m, { accountSid: msg.accountSid });
         await storeDocument(db, {
           tenantId: tenant.id,
           applicationId: application.id,
@@ -217,7 +220,7 @@ const process = async (
       } catch (err) {
         log.warn('intake.media_failed', { error: err });
         // Which account the media URL belongs to (a SID, not personal data) vs the one Twilio posted.
-        const mediaAccount = /\/Accounts\/(AC[0-9a-f]{32})\//i.exec(m.url)?.[1] ?? null;
+        const mediaAccount = /\/Accounts\/(AC[0-9a-f]{32})\//i.exec(m.ref)?.[1] ?? null;
         await trace(
           db,
           tenant.id,
@@ -225,7 +228,7 @@ const process = async (
           'intake.media_failed',
           err instanceof Error
             ? new Error(
-                `${err.message}; media account ${mediaAccount ?? 'unknown'}; webhook account ${msg.accountSid ?? 'unknown'}; configured ${app.twilio!.configuredAccountSid.slice(0, 8)}…`,
+                `${err.message}; media account ${mediaAccount ?? 'unknown'}; webhook account ${msg.accountSid ?? 'unknown'}; configured ${app.twilio?.configuredAccountSid.slice(0, 8) ?? 'none'}…`,
               )
             : err,
         );
@@ -238,7 +241,7 @@ const process = async (
       msg.media.length === 0 &&
       isConfirmation(msg.body)
     ) {
-      await submit(deps, db, tenant, rep, template, application);
+      await submit(deps, db, tenant, rep, template, application, msg);
       return;
     }
 
@@ -253,6 +256,7 @@ const process = async (
         text: REPLIES.notAForm,
         accountSid: msg.accountSid,
         messageId: input.messageId,
+        provider: msg.provider,
       });
       return;
     }
@@ -291,6 +295,7 @@ const process = async (
         text: REPLIES.notAForm,
         accountSid: msg.accountSid,
         messageId: input.messageId,
+        provider: msg.provider,
       });
       return;
     }
@@ -307,6 +312,7 @@ const process = async (
         text: REPLIES.unreadable(result.unreadableReason),
         accountSid: msg.accountSid,
         messageId: input.messageId,
+        provider: msg.provider,
       });
       return;
     }
@@ -383,6 +389,7 @@ const process = async (
       text,
       accountSid: msg.accountSid,
       messageId: input.messageId,
+      provider: msg.provider,
     });
   } catch (err) {
     log.error('intake.failed', { error: err });
@@ -395,6 +402,8 @@ const process = async (
         rep,
         application,
         "Something went wrong reading that. I'll try again if you resend it, or type the details.",
+        msg.accountSid,
+        msg.provider,
       );
     } catch {
       // nothing more to do
@@ -439,6 +448,7 @@ const submit = async (
   rep: RepRow,
   template: TemplateRow,
   application: ApplicationRow,
+  msg: InboundMessage,
 ) => {
   const now = deps.now ?? (() => new Date());
   const evaluation: Evaluation = evaluate(template.definition, application.data, now());
@@ -450,6 +460,8 @@ const submit = async (
       rep,
       application,
       updatedMessage({ template: template.definition, data: application.data, evaluation }),
+      msg.accountSid,
+      msg.provider,
     );
     return;
   }
@@ -463,7 +475,16 @@ const submit = async (
     actor: `rep:${rep.id}`,
     action: 'application.submitted',
   });
-  await sendReply(deps, db, tenant, rep, updated, REPLIES.submitted(updated.ref));
+  await sendReply(
+    deps,
+    db,
+    tenant,
+    rep,
+    updated,
+    REPLIES.submitted(updated.ref),
+    msg.accountSid,
+    msg.provider,
+  );
   try {
     await notifyCreditControl(deps.app, db, {
       tenant,
@@ -514,6 +535,7 @@ const quietReply = async (
     text: string;
     accountSid?: string | null;
     messageId?: string | null;
+    provider?: InboundMessage['provider'];
   },
 ) => {
   const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
@@ -556,10 +578,13 @@ export const sendReply = async (
   application: ApplicationRow | null,
   text: string,
   accountSid?: string | null,
+  providerName: InboundMessage['provider'] = 'twilio',
 ) => {
+  const provider = deps.app.messaging.for(providerName) ?? deps.app.messaging.default;
+  if (!provider) throw new Error('no messaging provider configured');
   let sid: string;
   try {
-    sid = await deps.app.twilio!.sendWhatsApp(rep.phone, text, accountSid);
+    sid = await provider.sendText(rep.phone, text, { accountSid: accountSid ?? null });
   } catch (err) {
     await trace(db, tenant.id, application?.id ?? null, 'intake.reply_failed', err);
     throw err;
